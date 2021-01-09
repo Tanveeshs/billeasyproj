@@ -5,99 +5,68 @@ const { Client } = require('pg')
 
 app.use(express.json())
 const client = new Client({
-    //Heroku username
-    user: 'postgres',
-    //Enter heroku url
-    host: 'localhost',
-    //Database name
-    database: 'Test',
-    //YOUR PASSWORD HERE
-    password: '123456',
+    user: 'aefevhdj',
+    host: 'arjuna.db.elephantsql.com',
+    database: 'aefevhdj',
+    password: 'NUP4h-qK2YixPptTgcbJpv6pfMxdCzS7',
     port: 5432,
 });
 //Query for creating tables
-const query = `CREATE TABLE IF NOT EXISTS users (
-    username varchar NOT NULL UNIQUE,
-    password varchar NOT NULL);
-    CREATE TABLE IF NOT EXISTS objects(
-    id SERIAL,
-    date varchar,
-    time varchar,
-    variant varchar,
-    haspin varchar,
-    map_details varchar
-    );
-    `;
+const query = `CREATE TABLE IF NOT EXISTS employee (
+empid serial,
+name varchar,
+date_join date,
+dob date,
+department varchar,
+address varchar,
+PRIMARY KEY( empid )
+);`;
 //Connecting to DB
-client.connect()
+client.connect((err)=>{
+    if(err){
+        console.error(err)
+        return;
+    }else {
+        console.log('Successfully connected')
+    }
+})
 //Executing Create Table Query
 client.query(query, (err, res) => {
     if (err) {
         console.error(err);
         return;
     }
-    console.log('Database Successfully started');
+    console.log('table created');
+
+})
+const query2 = `CREATE TABLE IF NOT EXISTS projects (
+    projectid serial,
+    empid int,
+    description varchar,
+    PRIMARY KEY(projectid),
+    CONSTRAINT fk_employee
+        FOREIGN KEY(empid) REFERENCES employee( empid )
+    );`;
+client.query(query2, (err, result) => {
+    if (err) {
+        console.error(err);
+        return;
+    }
+    console.log('Table created');
 })
 
-//Route to create New user
-app.post('/register', (req,res)=>{
-    let username = req.body.username.toLowerCase();
-    let password = req.body.password;
-    let query = `INSERT INTO USERS VALUES(
-            '${username}',
-            '${password}')`
-    client.query(query,(err,result)=>{
-        if (err) {
-            console.error(err);
-            //ERROR PAGE
-            res.json({message:"Sorry there is some error"});
-        }else {
-            console.log('User added');
-            //Add page after register here
-            res.send("DONE")
-        }
-    })
-})
-
-//Route for user login
-app.post('/login', (req,res,next)=>{
-    let username = req.body.username.toLowerCase();
-    let password = req.body.password;
-    let query =
-        `SELECT * FROM USERS
-         WHERE username='${username}'`
-    client.query(query,(err,result)=>{
-        if (err) {
-            console.error(err);
-            //ERROR PAGE
-            res.json({message:"Sorry there is some error"});
-        }else {
-            if(result.rows[0].password===password)
-            {
-                //Show Login Success
-                res.send("USER LOGIN SUCCESS")
-                return next();
-            }else{
-                //Show login failed
-                res.json("USER LOGIN FAILED")
-                return next();
-            }
-        }
-    })
-})
-//To create a new Object
-app.post('/insert', (req,res)=>{
-    let date = req.body.date;
-    let time = req.body.time;
-    let variant = req.body.variant;
-    let haspin = req.body.haspin;
-    let map_details = req.body.map_details;
-    let query = `INSERT INTO objects(date,time,variant,haspin,map_details) VALUES(
-            '${date}',
-            '${time}',
-            '${variant}',
-            '${haspin}',
-            '${map_details}');`;
+app.post('/insertEmp', (req,res)=>{
+    let name = req.body.name;
+    let date_join = req.body.date_join;
+    let dob = req.body.dob;
+    let department = req.body.department;
+    let address = req.body.address;
+    let query = `INSERT INTO employee(name,date_join,dob,department,address) VALUES(
+            '${name}',
+            '${date_join}',
+            '${dob}',
+            '${department}',
+            '${address}') RETURNING empid;`;
     client.query(query,(err,result)=>{
         if (err) {
             console.error(err);
@@ -106,15 +75,68 @@ app.post('/insert', (req,res)=>{
         }else {
             console.log('Object inserted');
             //Send response for inserted Object
-            res.json("Object Inserted")
+            res.json({message:"Object Inserted",id:result.rows[0].empid});
         }
     })
 })
-
-//Display all objects
-app.get('/all', (req,res,next)=>{
+app.post('/insertProj', (req,res)=>{
+    let description = req.body.description;
+    let empid = req.body.empid;
+    let query = `INSERT INTO projects(description,empid) VALUES(
+            '${description}',
+            '${empid}') RETURNING projectid;`;
+    client.query(query,(err,result)=>{
+        if (err) {
+            console.error(err);
+            //ERROR PAGE
+            res.json({message:"Sorry there is some error"});
+        }else {
+            console.log('Object inserted');
+            //Send response for inserted Object
+            res.json({message:"Object Inserted",id:result.rows[0].projectid});
+        }
+    })
+})
+app.get('/showEmp',(req,res,next)=>{
     let query =
-        `SELECT * FROM OBJECTS;`
+        `SELECT * FROM employee;`
+    client.query(query,(err,result)=>{
+        if (err) {
+            console.error(err);
+            res.json({message:"Sorry there is some error"});
+        }else {
+            if (result.rows.length > 0) {
+                res.json({message: "Success", objects: result.rows})
+                return next();
+            } else {
+                res.send("NO DATA AVAILABLE");
+
+            }
+        }
+    })
+})
+app.get('/showProj',(req,res,next)=>{
+    let query =
+        `SELECT * FROM projects;`
+    client.query(query,(err,result)=>{
+        if (err) {
+            console.error(err);
+            res.json({message:"Sorry there is some error"});
+        }else {
+            if (result.rows.length > 0) {
+                res.json({message: "Success", objects: result.rows})
+                return next();
+            } else {
+                res.send("NO DATA AVAILABLE");
+
+            }
+        }
+    })
+})
+//Display all objects
+app.get('/showProjWithEmp', (req,res,next)=>{
+    let query =
+        `SELECT * FROM projects INNER JOIN employee ON(projects.empid=employee.empid);`
     client.query(query,(err,result)=>{
         if (err) {
             console.error(err);
